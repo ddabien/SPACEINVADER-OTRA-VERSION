@@ -1,0 +1,41 @@
+name: Build x86 Win7/10/11 Screensaver
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '**.cs'
+      - '**.csproj'
+      - 'Content/**'
+      - '.github/workflows/build-x86.yml'
+
+jobs:
+  build:
+    runs-on: windows-2019
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Setup NuGet
+        uses: NuGet/setup-nuget@v2
+
+      - name: Restore NuGet packages
+        run: nuget restore
+
+      - name: Build x86 Release
+        run: msbuild SpaceInvadersSaverWin7.csproj /p:Configuration=Release /p:Platform="x86" /m
+
+      - name: Prepare .scr and package
+        shell: pwsh
+        run: |
+          $out = "bin/Release/net48"
+          Copy-Item "$out/SpaceInvadersSaverWin7.exe" "$out/SpaceInvadersSaverWin7.scr" -Force
+          Compress-Archive -Path "$out/*","Content/*" -DestinationPath "SpaceInvadersSaverWin7-x86.zip" -Force
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SpaceInvadersSaverWin7-x86
+          path: SpaceInvadersSaverWin7-x86.zip
