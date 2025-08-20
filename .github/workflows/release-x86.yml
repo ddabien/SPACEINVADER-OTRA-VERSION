@@ -1,0 +1,62 @@
+name: Release x86 Win7/10/11 Screensaver
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag (e.g., v1.0.0)'
+        required: true
+        type: string
+      prerelease:
+        description: 'Mark as prerelease'
+        required: false
+        type: boolean
+        default: false
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: windows-2019
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Setup NuGet
+        uses: NuGet/setup-nuget@v2
+
+      - name: Restore NuGet packages
+        run: nuget restore
+
+      - name: Build x86 Release
+        run: msbuild SpaceInvadersSaverWin7.csproj /p:Configuration=Release /p:Platform="x86" /m
+
+      - name: Prepare .scr and package
+        shell: pwsh
+        run: |
+          $out = "bin/Release/net48"
+          Copy-Item "$out/SpaceInvadersSaverWin7.exe" "$out/SpaceInvadersSaverWin7.scr" -Force
+          Compress-Archive -Path "$out/*","Content/*" -DestinationPath "SpaceInvadersSaverWin7-x86.zip" -Force
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SpaceInvadersSaverWin7-x86
+          path: SpaceInvadersSaverWin7-x86.zip
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: SpaceInvadersSaverWin7 ${{ github.event.inputs.tag || github.ref_name }}
+          tag_name: ${{ github.event.inputs.tag || github.ref_name }}
+          draft: false
+          prerelease: ${{ inputs.prerelease }}
+          generate_release_notes: true
+          files: |
+            SpaceInvadersSaverWin7-x86.zip
